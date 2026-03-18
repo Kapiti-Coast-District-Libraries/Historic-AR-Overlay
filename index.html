@@ -1,163 +1,33 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Historic AR Overlay</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+<meta charset="utf-8">
+<title>WebXR AR Image Overlay</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
 
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background: #000;
-            color: #fff;
-            overflow: hidden;
-        }
+<style>
+body {
+  margin:0;
+  overflow:hidden;
+  font-family:sans-serif;
+}
 
-        #canvas {
-            display: block;
-            width: 100%;
-            height: 100vh;
-        }
-
-        #ui {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            pointer-events: none;
-            z-index: 100;
-        }
-
-        #header {
-            padding: 20px;
-            text-align: center;
-            pointer-events: auto;
-        }
-
-        #header h1 {
-            font-size: 24px;
-            margin-bottom: 10px;
-        }
-
-        #status {
-            font-size: 14px;
-            color: #aaa;
-            min-height: 20px;
-        }
-
-        #controls {
-            padding: 20px;
-            display: flex;
-            gap: 10px;
-            justify-content: center;
-            flex-wrap: wrap;
-            pointer-events: auto;
-        }
-
-        button {
-            padding: 12px 24px;
-            font-size: 16px;
-            background: #007AFF;
-            color: white;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: background 0.2s;
-            pointer-events: auto;
-        }
-
-        button:hover {
-            background: #0051D5;
-        }
-
-        button:disabled {
-            background: #ccc;
-            cursor: not-allowed;
-        }
-
-        #imageInput {
-            display: none;
-        }
-
-        #info {
-            padding: 20px;
-            background: rgba(0, 0, 0, 0.7);
-            border-radius: 8px;
-            margin: 20px;
-            font-size: 14px;
-            pointer-events: auto;
-            max-width: 400px;
-        }
-
-        .error {
-            color: #ff3b30;
-        }
-
-        .success {
-            color: #34c759;
-        }
-
-        #urlInput {
-            padding: 10px;
-            border-radius: 4px;
-            border: 1px solid #007AFF;
-            background: rgba(0, 122, 255, 0.1);
-            color: white;
-            font-size: 14px;
-            width: 300px;
-            pointer-events: auto;
-        }
-
-        #urlInput::placeholder {
-            color: #888;
-        }
-    </style>
+#startButton {
+  position:absolute;
+  bottom:20px;
+  left:50%;
+  transform:translateX(-50%);
+  padding:15px 25px;
+  font-size:18px;
+}
+</style>
 </head>
+
 <body>
-    <canvas id="canvas"></canvas>
-    
-    <div id="ui">
-        <div id="header">
-            <h1>📍 Historic AR Overlay</h1>
-            <div id="status">Ready to start AR session</div>
-        </div>
 
-        <div id="info">
-            <p>📍 <strong>How It Works:</strong></p>
-            <p>• Load a historic image (URL or file)</p>
-            <p>• Tap "🚀 Start AR" to activate camera</p>
-            <p>• Historic image appears directly in front of you</p>
-            <p>• Compare with the real-world scene behind it</p>
-            <p>• Tap "🔄 Reset" to exit and try another image</p>
-        </div>
+<button id="startButton">Start AR</button>
 
-        <div id="controls">
-            <input 
-                type="text" 
-                id="urlInput" 
-                placeholder="Enter image URL or use file upload"
-            >
-            <input 
-                type="file" 
-                id="imageInput" 
-                accept="image/*"
-            >
-            <button id="uploadBtn">📤 Upload Image</button>
-            <button id="startBtn">🚀 Start AR</button>
-            <button id="resetBtn">🔄 Reset</button>
-        </div>
-    </div>
+<script type="module" src="app.js"></script>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="app.js"></script>
 </body>
 </html>
