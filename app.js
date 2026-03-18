@@ -23,11 +23,15 @@ class AROverlay {
     }
 
     async init() {
+        console.log('=== Historic AR Overlay Initializing ===');
         this.setupThreeJS();
+        console.log('Three.js initialized');
         this.setupEventListeners();
+        console.log('Event listeners attached');
         await this.checkARSupport();
         this.checkQueryParams();
         this.updateStatus('Ready to start AR session');
+        console.log('=== Initialization Complete ===');
     }
 
     setupThreeJS() {
@@ -42,6 +46,7 @@ class AROverlay {
             0.1,
             1000
         );
+        this.camera.position.z = 0;
         
         // Renderer
         const canvas = document.getElementById('canvas');
@@ -49,7 +54,8 @@ class AROverlay {
             canvas, 
             antialias: true, 
             alpha: true,
-            preserveDrawingBuffer: true
+            preserveDrawingBuffer: true,
+            xrCompatible: true
         });
         this.renderer.setSize(window.innerWidth, window.innerHeight);
         this.renderer.setPixelRatio(window.devicePixelRatio);
@@ -86,11 +92,6 @@ class AROverlay {
                 }
             }
         });
-
-        document.getElementById('repositionBtn').addEventListener('click', () => {
-            this.overlayWorldPosition = null;
-            this.updateStatus('🎯 Point at where you want to place the overlay...');
-        });
     }
 
     checkQueryParams() {
@@ -103,24 +104,36 @@ class AROverlay {
     }
 
     async checkARSupport() {
+        console.log('Checking AR support...');
+        
         if (!navigator.xr) {
+            console.error('❌ WebXR not available - navigator.xr undefined');
             this.updateStatus('❌ WebXR not supported on this device', true);
             document.getElementById('startBtn').disabled = true;
             return;
         }
 
+        console.log('✅ navigator.xr is available');
+
         try {
             const supported = await navigator.xr.isSessionSupported('immersive-ar');
             this.isARSupported = supported;
             
+            console.log('AR Session Support Check Result:', supported);
+            
             if (supported) {
+                console.log('✅ Immersive AR is supported!');
                 this.updateStatus('✅ AR is supported! You can proceed.');
+                document.getElementById('startBtn').disabled = false;
             } else {
+                console.error('❌ Immersive AR is NOT supported on this device');
                 this.updateStatus('❌ AR is not supported on this device', true);
                 document.getElementById('startBtn').disabled = true;
             }
         } catch (error) {
             console.error('AR Support Check Error:', error);
+            console.error('Error name:', error.name);
+            console.error('Error message:', error.message);
             this.updateStatus('⚠️ Error checking AR support: ' + error.message, true);
             document.getElementById('startBtn').disabled = true;
         }
@@ -138,40 +151,72 @@ class AROverlay {
         }
 
         try {
-            this.updateStatus('🔄 Requesting camera access and initializing AR...');
+            this.updateStatus('🔄 Initializing AR session...');
+            console.log('Requesting immersive-ar session...');
             
+            // Minimal configuration for better compatibility
             const sessionInit = {
-                requiredFeatures: ['dom-overlay'],
-                optionalFeatures: ['dom-overlay-for-handheld-ar'],
-                domOverlay: { root: document.body }
+                requiredFeatures: ['local'],
+                optionalFeatures: []
             };
 
+            console.log('Session init config:', sessionInit);
             this.xrSession = await navigator.xr.requestSession('immersive-ar', sessionInit);
+            console.log('✅ XR Session created:', this.xrSession);
             
             this.xrRefSpace = await this.xrSession.requestReferenceSpace('local');
+            console.log('✅ Reference space created');
             
             // Handle session end
             this.xrSession.addEventListener('end', () => {
+                console.log('XR Session ended');
                 this.xrSession = null;
-                this.overlayWorldPosition = null;
+                this.showControls();
                 document.getElementById('startBtn').disabled = false;
                 this.updateStatus('AR session ended. Start a new one to continue.');
             });
+
+            this.xrSession.addEventListener('select', () => {
+                console.log('XR Select event');
+            });
+            
+            // Hide controls during AR
+            this.hideControls();
             
             // Start rendering loop
-            this.renderer.xr.setSession(this.xrSession);
+            if (this.renderer.xr.setSession) {
+                this.renderer.xr.setSession(this.xrSession);
+                console.log('Renderer XR session set');
+            }
             this.startRenderLoop();
             
-            this.updateStatus('✅ Camera active! Point at where you want to place the overlay.');
+            this.updateStatus('✅ AR Camera Active! Image placed in front of you.');
             document.getElementById('startBtn').disabled = true;
             
         } catch (error) {
             console.error('AR Session Error:', error);
             console.error('Error name:', error.name);
             console.error('Error message:', error.message);
+            console.error('Error stack:', error.stack);
             this.updateStatus(`❌ Failed to start AR: ${error.message}`, true);
             this.xrSession = null;
             document.getElementById('startBtn').disabled = false;
+        }
+    }
+
+    hideControls() {
+        // Hide UI controls during AR session
+        const ui = document.getElementById('ui');
+        if (ui) {
+            ui.style.display = 'none';
+        }
+    }
+
+    showControls() {
+        // Show UI controls when AR ends
+        const ui = document.getElementById('ui');
+        if (ui) {
+            ui.style.display = 'flex';
         }
     }
 
@@ -181,31 +226,16 @@ class AROverlay {
                 try {
                     const pose = frame.getViewerPose(this.xrRefSpace);
                     
-                    // Place overlay at fixed world position on first frame
-                    if (this.overlayMesh && !this.overlayWorldPosition && pose) {
-                        // Place overlay 2 meters in front of initial viewer position
-                        const initialForward = new THREE.Vector3(0, 0, -2);
-                        const quat = new THREE.Quaternion().fromArray(pose.transform.orientation);
-                        initialForward.applyQuaternion(quat);
-                        
-                        const viewPos = new THREE.Vector3().fromArray(pose.transform.position);
-                        this.overlayWorldPosition = viewPos.add(initialForward);
-                        console.log('Overlay placed at world position:', this.overlayWorldPosition);
-                        this.updateStatus('✅ Overlay placed! Walk around to see it from different angles.');
-                        
-                        // Show reposition button
-                        document.getElementById('repositionBtn').style.display = 'inline-block';
-                    }
-                    
-                    // Keep overlay at fixed world position (truly world-locked)
-                    if (this.overlayMesh && this.overlayWorldPosition) {
-                        this.overlayMesh.position.copy(this.overlayWorldPosition);
-                        
-                        // Optional: make it face the viewer
-                        if (pose) {
-                            const viewPos = new THREE.Vector3().fromArray(pose.transform.position);
-                            this.overlayMesh.lookAt(viewPos);
+                    // Place overlay directly in front of user (hardcoded position)
+                    if (this.overlayMesh) {
+                        if (!this.overlayWorldPosition) {
+                            // First frame: calculate initial position directly in front
+                            this.overlayWorldPosition = new THREE.Vector3(0, 0, -0.5);
+                            console.log('Overlay positioned at:', this.overlayWorldPosition);
                         }
+                        
+                        // Keep overlay at fixed position (appears to float in front)
+                        this.overlayMesh.position.copy(this.overlayWorldPosition);
                     }
                 } catch (e) {
                     console.warn('Render loop error:', e);
@@ -291,10 +321,11 @@ class AROverlay {
 
         this.imageTexture = texture;
 
-        // Create a plane geometry for the image with proper aspect ratio handling
+        // Create a plane geometry for the image with proper aspect ratio
+        // Size it to be a good viewing size when placed directly in front of user
         const imageAspect = texture.image.width / texture.image.height;
-        const width = 2;
-        const height = width / imageAspect;
+        const height = 1.5; // 1.5 meters tall
+        const width = height * imageAspect;
         
         const geometry = new THREE.PlaneGeometry(width, height);
         const material = new THREE.MeshBasicMaterial({ 
@@ -305,10 +336,10 @@ class AROverlay {
         });
         
         this.overlayMesh = new THREE.Mesh(geometry, material);
-        this.overlayMesh.position.set(0, 0, -1);
+        // Position will be set during AR rendering
         
         this.scene.add(this.overlayMesh);
-        this.updateStatus('✅ Overlay ready! Start AR to place it in the world.');
+        this.updateStatus('✅ Overlay ready! Tap "🚀 Start AR" to see it.');
     }
 
     onWindowResize() {
@@ -327,21 +358,23 @@ class AROverlay {
     reset() {
         if (this.xrSession) {
             this.xrSession.end().then(() => {
+                console.log('XR Session ended by user');
                 this.xrSession = null;
-                this.overlayWorldPosition = null; // Reset overlay position
-                document.getElementById('repositionBtn').style.display = 'none';
+                this.overlayWorldPosition = null;
+                this.showControls();
                 document.getElementById('startBtn').disabled = false;
                 this.updateStatus('AR session ended. You can start a new one.');
             }).catch((err) => {
                 console.error('Error ending session:', err);
                 this.xrSession = null;
                 this.overlayWorldPosition = null;
-                document.getElementById('repositionBtn').style.display = 'none';
+                this.showControls();
+                document.getElementById('startBtn').disabled = false;
             });
         } else {
             document.getElementById('urlInput').value = '';
             document.getElementById('imageInput').value = '';
-            this.overlayWorldPosition = null; // Reset overlay position
+            this.overlayWorldPosition = null;
             document.getElementById('repositionBtn').style.display = 'none';
             if (this.overlayMesh) {
                 this.scene.remove(this.overlayMesh);
