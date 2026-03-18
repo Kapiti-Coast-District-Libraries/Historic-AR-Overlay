@@ -3,7 +3,7 @@ import { ARButton } from "https://cdn.jsdelivr.net/npm/three@0.158/examples/jsm/
 
 let camera, scene, renderer;
 let imagePlane;
-
+let overylayMaterial;
 init();
 
 function init() {
@@ -33,9 +33,12 @@ function init() {
         map: texture,
         transparent: true
     });
-
-    imagePlane = new THREE.Mesh(geometry, material);
-
+     overlayMaterial = new THREE.MeshBasicMaterial({
+    map: texture,
+    transparent: true,
+    opacity: 1
+});
+    imagePlane = new THREE.Mesh(geometry, overlayMaterial);
     // World locked position in front of user
     imagePlane.position.set(0, 0, -1);
 
@@ -51,6 +54,11 @@ function init() {
     document.getElementById("startButton").onclick = () => {
         button.click();
     };
+    const slider = document.getElementById("opacitySlider");
+
+slider.addEventListener("input", (e) => {
+    overlayMaterial.opacity = parseFloat(e.target.value);
+});
 
     renderer.setAnimationLoop(render);
 }

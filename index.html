@@ -6,6 +6,16 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
 <style>
+#controls{
+  position:absolute;
+  top:20px;
+  left:50%;
+  transform:translateX(-50%);
+  background:rgba(0,0,0,0.5);
+  padding:10px;
+  border-radius:8px;
+  color:white;
+}
 body {
   margin:0;
   overflow:hidden;
@@ -24,6 +34,10 @@ body {
 </head>
 
 <body>
+    <div id="controls">
+  Opacity
+  <input id="opacitySlider" type="range" min="0" max="1" step="0.01" value="1">
+</div>
 
 <button id="startButton">Start AR</button>
 
