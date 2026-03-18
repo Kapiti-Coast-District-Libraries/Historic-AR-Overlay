@@ -31,9 +31,11 @@ scene.add(light);
 
 
 /* Load overlay image */
+const params = new URLSearchParams(window.location.search);
+const imageURL = params.get("image");
 
 const textureLoader = new THREE.TextureLoader();
-const texture = textureLoader.load("overlay.jpg");
+const texture = textureLoader.load(imageURL);
 
 
 /* Create AR image plane */
