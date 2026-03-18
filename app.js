@@ -3,7 +3,7 @@ import { ARButton } from "https://cdn.jsdelivr.net/npm/three@0.158/examples/jsm/
 
 let camera, scene, renderer;
 let imagePlane;
-let overylayMaterial;
+let overlayMaterial;
 init();
 
 function init() {
@@ -52,8 +52,9 @@ function init() {
     document.body.appendChild(button);
 
     document.getElementById("startButton").onclick = () => {
-        button.click();
-    };
+    document.getElementById("startButton").style.display = "none";
+    button.click();
+};
     const slider = document.getElementById("opacitySlider");
 
 slider.addEventListener("input", (e) => {
