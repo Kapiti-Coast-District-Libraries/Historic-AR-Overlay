@@ -16,6 +16,8 @@ class AROverlay {
         this.imageTexture = null;
         this.isARSupported = false;
         this.selectedImageUrl = null;
+        this.overlayWorldPosition = null; // Fixed world position for overlay
+        this.cameraFeedCanvas = null;
         
         this.init();
     }
@@ -84,6 +86,11 @@ class AROverlay {
                 }
             }
         });
+
+        document.getElementById('repositionBtn').addEventListener('click', () => {
+            this.overlayWorldPosition = null;
+            this.updateStatus('🎯 Point at where you want to place the overlay...');
+        });
     }
 
     checkQueryParams() {
@@ -131,11 +138,11 @@ class AROverlay {
         }
 
         try {
-            this.updateStatus('🔄 Initializing AR session...');
+            this.updateStatus('🔄 Requesting camera access and initializing AR...');
             
             const sessionInit = {
-                requiredFeatures: ['hit-test', 'dom-overlay'],
-                optionalFeatures: ['dom-overlay-for-handheld-ar', 'camera-access'],
+                requiredFeatures: ['dom-overlay'],
+                optionalFeatures: ['dom-overlay-for-handheld-ar'],
                 domOverlay: { root: document.body }
             };
 
@@ -146,6 +153,7 @@ class AROverlay {
             // Handle session end
             this.xrSession.addEventListener('end', () => {
                 this.xrSession = null;
+                this.overlayWorldPosition = null;
                 document.getElementById('startBtn').disabled = false;
                 this.updateStatus('AR session ended. Start a new one to continue.');
             });
@@ -154,11 +162,13 @@ class AROverlay {
             this.renderer.xr.setSession(this.xrSession);
             this.startRenderLoop();
             
-            this.updateStatus('✅ AR session active! Move around to see the overlay.');
+            this.updateStatus('✅ Camera active! Point at where you want to place the overlay.');
             document.getElementById('startBtn').disabled = true;
             
         } catch (error) {
             console.error('AR Session Error:', error);
+            console.error('Error name:', error.name);
+            console.error('Error message:', error.message);
             this.updateStatus(`❌ Failed to start AR: ${error.message}`, true);
             this.xrSession = null;
             document.getElementById('startBtn').disabled = false;
@@ -168,25 +178,37 @@ class AROverlay {
     startRenderLoop() {
         this.renderer.xr.setAnimationLoop((time, frame) => {
             if (frame) {
-                // Update overlay to be world-locked to the user's view
-                if (this.overlayMesh && frame.session) {
-                    try {
-                        const pose = frame.getViewerPose(this.xrRefSpace);
+                try {
+                    const pose = frame.getViewerPose(this.xrRefSpace);
+                    
+                    // Place overlay at fixed world position on first frame
+                    if (this.overlayMesh && !this.overlayWorldPosition && pose) {
+                        // Place overlay 2 meters in front of initial viewer position
+                        const initialForward = new THREE.Vector3(0, 0, -2);
+                        const quat = new THREE.Quaternion().fromArray(pose.transform.orientation);
+                        initialForward.applyQuaternion(quat);
+                        
+                        const viewPos = new THREE.Vector3().fromArray(pose.transform.position);
+                        this.overlayWorldPosition = viewPos.add(initialForward);
+                        console.log('Overlay placed at world position:', this.overlayWorldPosition);
+                        this.updateStatus('✅ Overlay placed! Walk around to see it from different angles.');
+                        
+                        // Show reposition button
+                        document.getElementById('repositionBtn').style.display = 'inline-block';
+                    }
+                    
+                    // Keep overlay at fixed world position (truly world-locked)
+                    if (this.overlayMesh && this.overlayWorldPosition) {
+                        this.overlayMesh.position.copy(this.overlayWorldPosition);
+                        
+                        // Optional: make it face the viewer
                         if (pose) {
-                            // Calculate position 1 meter in front of viewer
-                            const forward = new THREE.Vector3(0, 0, -1);
-                            const quat = new THREE.Quaternion().fromArray(pose.transform.orientation);
-                            forward.applyQuaternion(quat);
-                            
                             const viewPos = new THREE.Vector3().fromArray(pose.transform.position);
-                            this.overlayMesh.position.copy(viewPos.add(forward));
-                            
-                            // Make overlay face user slightly tilted for better visibility
                             this.overlayMesh.lookAt(viewPos);
                         }
-                    } catch (e) {
-                        console.warn('Pose calculation error:', e);
                     }
+                } catch (e) {
+                    console.warn('Render loop error:', e);
                 }
 
                 this.renderer.render(this.scene, this.camera);
@@ -306,15 +328,21 @@ class AROverlay {
         if (this.xrSession) {
             this.xrSession.end().then(() => {
                 this.xrSession = null;
+                this.overlayWorldPosition = null; // Reset overlay position
+                document.getElementById('repositionBtn').style.display = 'none';
                 document.getElementById('startBtn').disabled = false;
                 this.updateStatus('AR session ended. You can start a new one.');
             }).catch((err) => {
                 console.error('Error ending session:', err);
                 this.xrSession = null;
+                this.overlayWorldPosition = null;
+                document.getElementById('repositionBtn').style.display = 'none';
             });
         } else {
             document.getElementById('urlInput').value = '';
             document.getElementById('imageInput').value = '';
+            this.overlayWorldPosition = null; // Reset overlay position
+            document.getElementById('repositionBtn').style.display = 'none';
             if (this.overlayMesh) {
                 this.scene.remove(this.overlayMesh);
                 this.overlayMesh = null;
